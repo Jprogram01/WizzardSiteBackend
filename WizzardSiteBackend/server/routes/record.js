@@ -1,4 +1,4 @@
-const {hashPassword, comparePasswords} = require("./encryption")
+const {hashPassword, comparePasswords} = require("../encryption")
 
 const express = require("express");
  
@@ -9,14 +9,20 @@ const recordRoutes = express.Router();
  
 // This will help us connect to the database
 const dbo = require("../db/conn.js");
- 
+const { ObjectId } = require('mongodb');
 // This help convert the id from string to ObjectId for the _id.
-const ObjectId = require("mongodb").ObjectId;
  
  
 // This section will help you get a list of all the records.
 recordRoutes.route("/record").get(function (req, res) {
  let db_connect = dbo.getDb("Wizzard_Data");
+ console.log(db_connect)
+ if (!db_connect) {
+  console.error('Error connecting to the database');
+  res.status(500).json({ error: 'Internal Server Error' });
+  return;
+}
+
  db_connect
    .collection("items")
    .find({})
@@ -29,9 +35,10 @@ recordRoutes.route("/record").get(function (req, res) {
 // This section will help you get a single record by id
 recordRoutes.route("/record/:id").get(function (req, res) {
  let db_connect = dbo.getDb("Wizzard_Data");
+
  let myquery = { _id: ObjectId(req.params.id) };
  db_connect
-   .collection("records")
+   .collection("items")
    .findOne(myquery, function (err, result) {
      if (err) throw err;
      res.json(result);
@@ -83,8 +90,6 @@ recordRoutes.route("/:id").delete((req, response) => {
 });
 
 // loginController.js
-const { ObjectId } = require('mongodb');
-const comparePasswords = require('./passwordUtils'); // Adjust the path based on your project structure
 
 recordRoutes.route("/login").post(async function (req, response) {
   try {
