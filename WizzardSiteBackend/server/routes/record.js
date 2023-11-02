@@ -1,5 +1,5 @@
-const {hashPassword, comparePasswords} = require("../encryption")
-
+const hashing = require("../encryption")
+const logic = require('../logic');
 const express = require("express");
  
 // recordRoutes is an instance of the express router.
@@ -12,95 +12,128 @@ const dbo = require("../db/conn.js");
 const { ObjectId } = require('mongodb');
 // This help convert the id from string to ObjectId for the _id.
  
- 
-// This section will help you get a list of all the records.
-recordRoutes.route("/record").get(function (req, res) {
- let db_connect = dbo.getDb("Wizzard_Data");
- console.log(db_connect)
- if (!db_connect) {
-  console.error('Error connecting to the database');
-  res.status(500).json({ error: 'Internal Server Error' });
-  return;
-}
 
- db_connect
-   .collection("items")
-   .find({})
-   .toArray(function (err, result) {
-     if (err) throw err;
-     res.json(result);
-   });
-});
  
 // This section will help you get a single record by id
-recordRoutes.route("/record/:id").get(function (req, res) {
- let db_connect = dbo.getDb("Wizzard_Data");
+recordRoutes.route("/record/:id").get(async function (req, res) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
 
- let myquery = { _id: ObjectId(req.params.id) };
- db_connect
-   .collection("items")
-   .findOne(myquery, function (err, result) {
-     if (err) throw err;
-     res.json(result);
-   });
+    let myquery = { _id: new ObjectId(req.params.id) };
+    
+    const result = await db_connect.collection("Items").findOne(myquery);
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /record/:id route:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
- 
+recordRoutes.route("/record").get(async function (req, res) {
+  try {
+    const db_connect = dbo.getDb("Wizzard_Data");
+
+    if (!db_connect) {
+      return res.status(500).json({ error: 'Internal Server Error - Database Connection Issue' });
+    }
+
+    const cursor = db_connect.collection("Items").find({});
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+
+    // Using forEach with the cursor
+    await cursor.forEach(doc => {
+      res.write(JSON.stringify(doc));
+    });
+
+    res.end();
+
+  } catch (err) {
+    console.error('Error in /record route:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // This section will help you create a new record.
-recordRoutes.route("/record/addperson").post(function (req, response) {
- let db_connect = dbo.getDb("Wizzard_Data");
- let myobj = {
-   email: req.body.email,
-   password: hashPassword(req.body.password),
-   name: req.body.name,
-   coins: 1000
- };
- db_connect.collection("People").insertOne(myobj, function (err, res) {
-   if (err) throw err;
-   response.json(res);
- });
+recordRoutes.route("/record/addperson").post(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+    let myobj = {
+      email: req.body.email,
+      password: (await hashing.hashPassword(req.body.password)).toString(),
+      name: req.body.name,
+      coins: 1000
+    };
+
+    const result = await db_connect.collection("People").insertOne(myobj);
+
+    response.json(result);
+
+  } catch (err) {
+    console.error('Error in /record/addperson route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
- 
-// This section will help you update a record by id.
-recordRoutes.route("/updatecoins/:id").post(function (req, response) {
- let db_connect = dbo.getDb("Wizzard_Data");
- let newcoins = req.body.newcoins
- let myquery = { _id: ObjectId(req.params.id) };
- let newvalues = {
-   $inc: {coins: newcoins}
- };
- db_connect
-   .collection("People")
-   .updateOne(myquery, newvalues, function (err, res) {
-     if (err) throw err;
-     console.log("1 document updated");
-     response.json(res);
-   });
+
+recordRoutes.route("/updatecoins/:id").post(async function (req, res) {
+  let db_connect = dbo.getDb("Wizzard_Data");
+
+  try {
+    let userId = req.params.id;
+
+    let user = await db_connect.collection("People").findOne({ _id: new ObjectId(userId) });
+    let currentCoins = user.coins;
+
+    // Ensure that newcoins is a decimal value
+    let newCoins = parseFloat(req.body.newcoins);
+
+    // Update the coins using the logic function
+    let updatedCoins = logic.updateCoins(currentCoins, newCoins);
+
+    await db_connect.collection("People").updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { coins: updatedCoins } }
+    );
+
+    // Respond with the updated value
+    res.json({ updatedCoins });
+
+  } catch (error) {
+    console.error('Error in /updatecoins/:id route:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
  
 // This section will help you delete a record
-recordRoutes.route("/:id").delete((req, response) => {
- let db_connect = dbo.getDb();
- let myquery = { _id: ObjectId(req.params.id) };
- db_connect.collection("records").deleteOne(myquery, function (err, obj) {
-   if (err) throw err;
-   console.log("1 document deleted");
-   response.json(obj);
- });
+recordRoutes.route("/:id").delete(async (req, response) => {
+  try {
+    let db_connect = dbo.getDb();
+    let myquery = { _id: new ObjectId(req.params.id) };
+
+    const result = await db_connect.collection("records").deleteOne(myquery);
+
+    console.log("1 document deleted");
+    response.json(result);
+
+  } catch (err) {
+    console.error('Error in /:id DELETE route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-// loginController.js
 
 recordRoutes.route("/login").post(async function (req, response) {
   try {
     const db_connect = dbo.getDb("Wizzard_Data");
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    const user = await db_connect.collection("People").findOne({ username });
+    // Find the user by email
+    const user = await db_connect.collection("People").findOne({ email });
 
     if (user) {
       // Compare the hashed password from the database with the provided password
-      const isPasswordMatch = await comparePasswords(password, user.password);
+      const isPasswordMatch = await hashing.comparePasswords(password, user.password);
 
       if (isPasswordMatch) {
         // Login successful
@@ -118,6 +151,7 @@ recordRoutes.route("/login").post(async function (req, response) {
     response.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 
 

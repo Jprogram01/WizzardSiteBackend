@@ -1,28 +1,26 @@
 const { MongoClient } = require("mongodb");
 const Db = process.env.ATLAS_URI;
 const client = new MongoClient(Db);
-console.log(process.env.ATLAS_URI);
 var _db;
  
 module.exports = {
   connectToServer: function (callback) {
-    client.connect(function (err, db) {
-      if (err) {
-      
-        console.error('Error connecting to MongoDB:', err);
+    client.connect()
+      .then((connection) => {
+        _db = connection.db("Wizzard_Data");
+        console.log("Successfully connected to MongoDB.");
+        return callback(null);
+      })
+      .catch((err) => {
+        console.log(err);
         return callback(err);
-      }
-      // Verify we got a good "db" object
-      if (db)
-      {
-        _db = db.db("Wizzard_Data");
-        console.log("Successfully connected to MongoDB."); 
-      }
-      return callback(null);
-         });
+      });
   },
- 
+
   getDb: function () {
+    if (!_db) {
+      console.error("Database not connected.");
+    }
     return _db;
   },
 };
