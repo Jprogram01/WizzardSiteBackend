@@ -40,12 +40,22 @@ recordRoutes.route("/record").get(async function (req, res) {
     const cursor = db_connect.collection("Items").find({});
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write('[');  // Add an opening square bracket
+
+    let first = true;
 
     // Using forEach with the cursor
     await cursor.forEach(doc => {
+      // Add a comma before writing subsequent objects (except for the first one)
+      if (!first) {
+        res.write(',');
+      }
+
       res.write(JSON.stringify(doc));
+      first = false;
     });
 
+    res.write(']');  // Add a closing square bracket
     res.end();
 
   } catch (err) {
