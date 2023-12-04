@@ -65,7 +65,7 @@ recordRoutes.route("/record").get(async function (req, res) {
 });
 
 // This section will help you create a new record.
-recordRoutes.route("/record/addperson").post(async function (req, response) {
+recordRoutes.route("/record/addperson/:id").post(async function (req, response) {
   try {
     let db_connect = dbo.getDb("Wizzard_Data");
     let myobj = {
@@ -81,6 +81,41 @@ recordRoutes.route("/record/addperson").post(async function (req, response) {
 
   } catch (err) {
     console.error('Error in /record/addperson route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+// This section will add items to the shopping cart.
+recordRoutes.route("/additemtocart/:id").post(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+    let myquery = { _id: new ObjectId(req.params.id) };
+    let item = await db_connect.collection("Items").findOne(myquery);
+    let user = await db_connect.collection("Shopping Carts").findOne({ _id: new ObjectId("65263aad4b8bc25d2093764b") });
+    let currentCart = user.shopping_cart_items
+
+    currentCart.push(item)
+
+    await db_connect.collection("Shopping Carts").updateOne(
+      { _id: new ObjectId("65263aad4b8bc25d2093764b") },
+      { $set: { shopping_cart_items: currentCart } }
+    );
+
+    response.json(item.item + "Added");
+  } catch (err) {
+    console.error('Error in /record/additemtocart route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+recordRoutes.route("/getcartitems/:id").post(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+    let shoppingCart = await db_connect.collection("Shopping Carts").findOne({ _id: new ObjectId("65263aad4b8bc25d2093764b") });
+    let currentCart = shoppingCart.shopping_cart_items
+
+    response.json(currentCart);
+  } catch (err) {
+    console.error('Error in /record/additemtocart route:', err);
     response.status(500).json({ error: 'Internal Server Error' });
   }
 });
