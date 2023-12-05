@@ -15,6 +15,7 @@ const { ObjectId } = require('mongodb');
 
  
 // This section will help you get a single record by id
+// params: item ID
 recordRoutes.route("/record/:id").get(async function (req, res) {
   try {
     let db_connect = dbo.getDb("Wizzard_Data");
@@ -29,6 +30,9 @@ recordRoutes.route("/record/:id").get(async function (req, res) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+//Get all items
+//params: None
 recordRoutes.route("/record").get(async function (req, res) {
   try {
     const db_connect = dbo.getDb("Wizzard_Data");
@@ -65,7 +69,8 @@ recordRoutes.route("/record").get(async function (req, res) {
 });
 
 // This section will help you create a new record.
-recordRoutes.route("/record/addperson/:id").post(async function (req, response) {
+// params: email, name, password
+recordRoutes.route("/record/addperson").post(async function (req, response) {
   try {
     let db_connect = dbo.getDb("Wizzard_Data");
     let myobj = {
@@ -84,7 +89,10 @@ recordRoutes.route("/record/addperson/:id").post(async function (req, response) 
     response.status(500).json({ error: 'Internal Server Error' });
   }
 });
-// This section will add items to the shopping cart.
+/*
+This section will an item to a cart by ID
+params: Item ID
+*/
 recordRoutes.route("/additemtocart/:id").post(async function (req, response) {
   try {
     let db_connect = dbo.getDb("Wizzard_Data");
@@ -100,14 +108,19 @@ recordRoutes.route("/additemtocart/:id").post(async function (req, response) {
       { $set: { shopping_cart_items: currentCart } }
     );
 
-    response.json(item.item + "Added");
+    response.json(item.Item + " " + "Added");
   } catch (err) {
     console.error('Error in /record/additemtocart route:', err);
     response.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-recordRoutes.route("/getcartitems/:id").post(async function (req, response) {
+
+/*
+This cart will get all items out of the shopping cart
+params: None
+*/
+recordRoutes.route("/getcartitems").get(async function (req, response) {
   try {
     let db_connect = dbo.getDb("Wizzard_Data");
     let shoppingCart = await db_connect.collection("Shopping Carts").findOne({ _id: new ObjectId("65263aad4b8bc25d2093764b") });
@@ -115,12 +128,95 @@ recordRoutes.route("/getcartitems/:id").post(async function (req, response) {
 
     response.json(currentCart);
   } catch (err) {
-    console.error('Error in /record/additemtocart route:', err);
+    console.error('Error in getcartitems route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+/*
+This will clear and individual item out of the cart by ID
+params: Item ID
+*/
+recordRoutes.route("/clearcartitem/:id").post(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+    let shoppingCart = await db_connect.collection("Shopping Carts").findOne({ _id: new ObjectId("65263aad4b8bc25d2093764b") });
+    let currentCart = shoppingCart.shopping_cart_items
+    currentCart = currentCart.filter(item => item._id.toString() !== req.params.id);
+
+    await db_connect.collection("Shopping Carts").updateOne(
+      { _id: new ObjectId("65263aad4b8bc25d2093764b") },
+      { $set: { shopping_cart_items: currentCart } });
+
+    response.json(currentCart);
+  } catch (err) {
+    console.error('Error in /clearcartitem route:', err);
     response.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
+/*
+This will clear and individual item out of the cart by ID
+params: None
+*/
+recordRoutes.route("/getperson").get(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+    let person = await db_connect.collection("People").findOne({ _id: new ObjectId("654350dab19fdd08891f89cf") });
 
+    response.json(person);
+  } catch (err) {
+    console.error('Error in /clearcartitem route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/*
+This clears out all items from the cart
+params: None
+*/
+recordRoutes.route("/clearallcartitems").post(async function (req, response) {
+  try {
+    let db_connect = dbo.getDb("Wizzard_Data");
+        await db_connect.collection("Shopping Carts").updateOne(
+      { _id: new ObjectId("65263aad4b8bc25d2093764b") },
+      { $set: { shopping_cart_items: [] } }
+    );
+
+    response.json("items deleted");
+  } catch (err) {
+    console.error('Error in /record/additemtocart route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+/*
+This gets the price of all items in the cart, then clears out the cart.
+params: None
+*/
+recordRoutes.route("/gettotalprice").get(async function (req, response) {
+  try {
+    const db_connect = dbo.getDb("Wizzard_Data");
+    const shoppingCart = await db_connect.collection("Shopping Carts").findOne({ _id: new ObjectId("65263aad4b8bc25d2093764b") });
+    let currentCart = shoppingCart.shopping_cart_items;
+
+    // Calculate the total price using the reduce method
+    let totalPrice = currentCart.reduce((sum, item) => sum + item.Price, 0);
+    console.log(totalPrice)
+    await db_connect.collection("Shopping Carts").updateOne(
+      { _id: new ObjectId("65263aad4b8bc25d2093764b") },
+      { $set: { shopping_cart_items: [] } }
+    );
+
+    response.json(totalPrice);
+  } catch (err) {
+    console.error('Error in /gettotalprice route:', err);
+    response.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/*
+Updates the amount of coins the user has
+params, person ID
+*/
 recordRoutes.route("/updatecoins/:id").post(async function (req, res) {
   let db_connect = dbo.getDb("Wizzard_Data");
 
@@ -150,8 +246,9 @@ recordRoutes.route("/updatecoins/:id").post(async function (req, res) {
   }
 });
  
-// This section will help you delete a record
-recordRoutes.route("/:id").delete(async (req, response) => {
+// This section will help you delete a record 
+// params: item ID
+recordRoutes.route("/deleteitem/:id").delete(async (req, response) => {
   try {
     let db_connect = dbo.getDb();
     let myquery = { _id: new ObjectId(req.params.id) };
@@ -167,7 +264,10 @@ recordRoutes.route("/:id").delete(async (req, response) => {
   }
 });
 
-
+/*
+Login functionality for login page
+params: email, password
+*/
 recordRoutes.route("/login").post(async function (req, response) {
   try {
     const db_connect = dbo.getDb("Wizzard_Data");
